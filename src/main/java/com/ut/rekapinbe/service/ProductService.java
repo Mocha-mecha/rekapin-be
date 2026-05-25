@@ -4,9 +4,7 @@ import com.ut.rekapinbe.dto.ProductRequest;
 import com.ut.rekapinbe.entity.Product;
 import com.ut.rekapinbe.entity.User;
 import com.ut.rekapinbe.repository.ProductRepository;
-import com.ut.rekapinbe.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -17,50 +15,43 @@ import java.util.List;
 public class ProductService {
 
     private final ProductRepository productRepository;
-    private final UserRepository userRepository;
 
-    private User getCurrentUser() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+    public List<Product> getAll(User user) {
+        return productRepository.findByUser(user);
     }
 
-    public List<Product> getAllProducts() {
-        return productRepository.findByUser(getCurrentUser());
-    }
-
-    public Product getProductById(Long id) {
-        return productRepository.findByIdAndUser(id, getCurrentUser())
+    public Product getById(Long id, User user) {
+        return productRepository.findByIdAndUser(id, user)
                 .orElseThrow(() -> new RuntimeException("Product not found"));
     }
 
     @Transactional
-    public Product createProduct(ProductRequest request) {
+    public Product create(ProductRequest request, User user) {
         Product product = Product.builder()
-                .name(request.getName())
-                .costPrice(request.getCostPrice())
-                .sellingPrice(request.getSellingPrice())
-                .stock(request.getStock())
-                .useStock(request.getUseStock())
-                .user(getCurrentUser())
+                .name(request.name())
+                .costPrice(request.costPrice())
+                .sellingPrice(request.sellingPrice())
+                .stock(request.stock())
+                .useStock(request.useStock() != null && request.useStock())
+                .user(user)
                 .build();
         return productRepository.save(product);
     }
 
     @Transactional
-    public Product updateProduct(Long id, ProductRequest request) {
-        Product product = getProductById(id);
-        product.setName(request.getName());
-        product.setCostPrice(request.getCostPrice());
-        product.setSellingPrice(request.getSellingPrice());
-        product.setStock(request.getStock());
-        product.setUseStock(request.getUseStock());
+    public Product update(Long id, ProductRequest request, User user) {
+        Product product = getById(id, user);
+        product.setName(request.name());
+        product.setCostPrice(request.costPrice());
+        product.setSellingPrice(request.sellingPrice());
+        product.setStock(request.stock());
+        product.setUseStock(request.useStock());
         return productRepository.save(product);
     }
 
     @Transactional
-    public void deleteProduct(Long id) {
-        Product product = getProductById(id);
+    public void delete(Long id, User user) {
+        Product product = getById(id, user);
         productRepository.delete(product);
     }
 }

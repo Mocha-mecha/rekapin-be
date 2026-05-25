@@ -5,9 +5,7 @@ import com.ut.rekapinbe.entity.Transaction;
 import com.ut.rekapinbe.entity.TransactionItem;
 import com.ut.rekapinbe.entity.User;
 import com.ut.rekapinbe.repository.TransactionRepository;
-import com.ut.rekapinbe.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -23,16 +21,8 @@ import java.util.stream.Collectors;
 public class DashboardService {
 
     private final TransactionRepository transactionRepository;
-    private final UserRepository userRepository;
 
-    private User getCurrentUser() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-    }
-
-    public DashboardResponse getDashboardData() {
-        User user = getCurrentUser();
+    public DashboardResponse getSummary(User user) {
         LocalDateTime startOfDay = LocalDateTime.of(LocalDate.now(), LocalTime.MIN);
         LocalDateTime endOfDay = LocalDateTime.of(LocalDate.now(), LocalTime.MAX);
 
@@ -46,11 +36,6 @@ public class DashboardService {
                 .map(Transaction::getEstimatedProfit)
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // Calculate top selling products from all time or today? 
-        // Dashboard usually implies recent or overall. The requirement says "produk yang paling sering terjual" in dashboard summary.
-        // Let's calculate from all transactions for "most frequent", or today for "today's summary". 
-        // The issue description says "produk yang paling sering terjual" under Dashboard summary.
-        
         List<Transaction> allTransactions = transactionRepository.findByUserOrderByCreatedAtDesc(user);
         
         Map<String, Long> productSalesMap = allTransactions.stream()
@@ -60,20 +45,17 @@ public class DashboardService {
                         Collectors.summingLong(TransactionItem::getQuantity)
                 ));
 
-        List<DashboardResponse.ProductSalesDTO> topProducts = productSalesMap.entrySet().stream()
+        List<DashboardResponse.TopProduct> topProducts = productSalesMap.entrySet().stream()
                 .sorted(Map.Entry.<String, Long>comparingByValue().reversed())
                 .limit(5)
-                .map(e -> DashboardResponse.ProductSalesDTO.builder()
-                        .productName(e.getKey())
-                        .quantitySold(e.getValue())
-                        .build())
+                .map(e -> new DashboardResponse.TopProduct(e.getKey(), e.getValue()))
                 .collect(Collectors.toList());
 
-        return DashboardResponse.builder()
-                .totalSalesToday(totalSales)
-                .totalProfitToday(totalProfit)
-                .transactionCountToday((long) todayTransactions.size())
-                .topSellingProducts(topProducts)
-                .build();
+        return new DashboardResponse(
+                totalSales,
+                totalProfit,
+                todayTransactions.size(),
+                topProducts
+        );
     }
 }

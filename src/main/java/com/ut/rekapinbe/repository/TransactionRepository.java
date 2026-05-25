@@ -12,6 +12,7 @@ import java.util.Optional;
 
 public interface TransactionRepository extends JpaRepository<Transaction, Long> {
     List<Transaction> findByUserOrderByCreatedAtDesc(User user);
+    List<Transaction> findByUser(User user);
     Optional<Transaction> findByIdAndUser(Long id, User user);
 
     @Query("SELECT t FROM Transaction t WHERE t.user = :user AND t.createdAt BETWEEN :start AND :end ORDER BY t.createdAt DESC")

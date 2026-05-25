@@ -27,14 +27,14 @@ public class AuthService {
 
     @Transactional
     public AuthResponse register(RegisterRequest request) {
-        if (userRepository.findByUsername(request.getUsername()).isPresent()) {
+        if (userRepository.findByUsername(request.username()).isPresent()) {
             throw new RuntimeException("Username already exists");
         }
 
         User user = User.builder()
-                .username(request.getUsername())
-                .password(passwordEncoder.encode(request.getPassword()))
-                .fullName(request.getFullName())
+                .username(request.username())
+                .password(passwordEncoder.encode(request.password()))
+                .fullName(request.fullName())
                 .build();
 
         userRepository.save(user);
@@ -42,28 +42,27 @@ public class AuthService {
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
         String token = jwtUtils.generateToken(userDetails);
 
-        return AuthResponse.builder()
-                .token(token)
-                .username(user.getUsername())
-                .fullName(user.getFullName())
-                .build();
+        return new AuthResponse(token);
     }
 
     public AuthResponse login(LoginRequest request) {
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+                new UsernamePasswordAuthenticationToken(request.username(), request.password())
         );
 
-        User user = userRepository.findByUsername(request.getUsername())
+        User user = userRepository.findByUsername(request.username())
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         UserDetails userDetails = userDetailsService.loadUserByUsername(user.getUsername());
         String token = jwtUtils.generateToken(userDetails);
 
-        return AuthResponse.builder()
-                .token(token)
-                .username(user.getUsername())
-                .fullName(user.getFullName())
-                .build();
+        return new AuthResponse(token);
+    }
+
+    @Transactional
+    public void delete(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        userRepository.delete(user);
     }
 }

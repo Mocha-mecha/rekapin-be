@@ -7,9 +7,7 @@ import com.ut.rekapinbe.entity.TransactionItem;
 import com.ut.rekapinbe.entity.User;
 import com.ut.rekapinbe.repository.ProductRepository;
 import com.ut.rekapinbe.repository.TransactionRepository;
-import com.ut.rekapinbe.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,17 +22,9 @@ public class TransactionService {
 
     private final TransactionRepository transactionRepository;
     private final ProductRepository productRepository;
-    private final UserRepository userRepository;
-
-    private User getCurrentUser() {
-        String username = SecurityContextHolder.getContext().getAuthentication().getName();
-        return userRepository.findByUsername(username)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-    }
 
     @Transactional
-    public Transaction createTransaction(TransactionRequest request) {
-        User user = getCurrentUser();
+    public Transaction create(TransactionRequest request, User user) {
         Transaction transaction = Transaction.builder()
                 .user(user)
                 .totalAmount(BigDecimal.ZERO)
@@ -45,27 +35,27 @@ public class TransactionService {
         BigDecimal totalAmount = BigDecimal.ZERO;
         BigDecimal totalProfit = BigDecimal.ZERO;
 
-        for (TransactionRequest.ItemRequest itemReq : request.getItems()) {
-            Product product = productRepository.findByIdAndUser(itemReq.getProductId(), user)
-                    .orElseThrow(() -> new RuntimeException("Product not found: " + itemReq.getProductId()));
+        for (TransactionRequest.ItemRequest itemReq : request.items()) {
+            Product product = productRepository.findByIdAndUser(itemReq.productId(), user)
+                    .orElseThrow(() -> new RuntimeException("Product not found: " + itemReq.productId()));
 
             if (Boolean.TRUE.equals(product.getUseStock())) {
-                if (product.getStock() == null || product.getStock() < itemReq.getQuantity()) {
+                if (product.getStock() == null || product.getStock() < itemReq.quantity()) {
                     throw new RuntimeException("Insufficient stock for product: " + product.getName());
                 }
-                product.setStock(product.getStock() - itemReq.getQuantity());
+                product.setStock(product.getStock() - itemReq.quantity());
                 productRepository.save(product);
             }
 
-            BigDecimal subtotal = product.getSellingPrice().multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+            BigDecimal subtotal = product.getSellingPrice().multiply(BigDecimal.valueOf(itemReq.quantity()));
             BigDecimal profit = product.getSellingPrice().subtract(product.getCostPrice())
-                    .multiply(BigDecimal.valueOf(itemReq.getQuantity()));
+                    .multiply(BigDecimal.valueOf(itemReq.quantity()));
 
             TransactionItem item = TransactionItem.builder()
                     .transaction(transaction)
                     .product(product)
                     .productName(product.getName())
-                    .quantity(itemReq.getQuantity())
+                    .quantity(itemReq.quantity())
                     .costPrice(product.getCostPrice())
                     .sellingPrice(product.getSellingPrice())
                     .subtotal(subtotal)
@@ -82,16 +72,28 @@ public class TransactionService {
         return transactionRepository.save(transaction);
     }
 
-    public List<Transaction> getAllTransactions() {
-        return transactionRepository.findByUserOrderByCreatedAtDesc(getCurrentUser());
+    public List<Transaction> getAll(User user) {
+        return transactionRepository.findByUserOrderByCreatedAtDesc(user);
     }
 
-    public Transaction getTransactionById(Long id) {
-        return transactionRepository.findByIdAndUser(id, getCurrentUser())
+    public Transaction getById(Long id, User user) {
+        return transactionRepository.findByIdAndUser(id, user)
                 .orElseThrow(() -> new RuntimeException("Transaction not found"));
     }
 
-    public List<Transaction> getTransactionsByDateRange(LocalDateTime start, LocalDateTime end) {
-        return transactionRepository.findByUserAndCreatedAtBetween(getCurrentUser(), start, end);
+    public List<Transaction> getByDateRange(LocalDateTime start, LocalDateTime end, User user) {
+        return transactionRepository.findByUserAndCreatedAtBetween(user, start, end);
+    }
+
+    @Transactional
+    public void delete(Long id, User user) {
+        Transaction transaction = getById(id, user);
+        transactionRepository.delete(transaction);
+    }
+
+    @Transactional
+    public void deleteAll(User user) {
+        List<Transaction> transactions = transactionRepository.findByUser(user);
+        transactionRepository.deleteAll(transactions);
     }
 }
