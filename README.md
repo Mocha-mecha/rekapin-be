@@ -34,7 +34,7 @@ Before running the application, make sure you have installed:
 
 1. **Clone Repository**
    ```bash
-   git clone https://github.com/username/rekapin-be.git
+   git clone https://github.com/Mocha-mecha/rekapin-be.git
    cd rekapin-be
    ```
 
