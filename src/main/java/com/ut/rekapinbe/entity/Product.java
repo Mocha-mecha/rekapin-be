@@ -24,6 +24,10 @@ public class Product {
     @Column(nullable = false)
     private String name;
 
+    private String category;
+
+    private String unit;
+
     @Column(nullable = false, precision = 19, scale = 2)
     private BigDecimal costPrice;
 
@@ -31,6 +35,9 @@ public class Product {
     private BigDecimal sellingPrice;
 
     private Integer stock;
+
+    @Column(precision = 5, scale = 2)
+    private BigDecimal discount;
 
     @Builder.Default
     private Boolean useStock = false;

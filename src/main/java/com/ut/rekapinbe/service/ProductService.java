@@ -29,8 +29,11 @@ public class ProductService {
     public Product create(ProductRequest request, User user) {
         Product product = Product.builder()
                 .name(request.name())
+                .category(request.category())
+                .unit(request.unit())
                 .costPrice(request.costPrice())
                 .sellingPrice(request.sellingPrice())
+                .discount(request.discount())
                 .stock(request.stock())
                 .useStock(request.useStock() != null && request.useStock())
                 .user(user)
@@ -42,10 +45,13 @@ public class ProductService {
     public Product update(Long id, ProductRequest request, User user) {
         Product product = getById(id, user);
         product.setName(request.name());
+        product.setCategory(request.category());
+        product.setUnit(request.unit());
         product.setCostPrice(request.costPrice());
         product.setSellingPrice(request.sellingPrice());
+        product.setDiscount(request.discount());
         product.setStock(request.stock());
-        product.setUseStock(request.useStock());
+        product.setUseStock(request.useStock() != null && request.useStock());
         return productRepository.save(product);
     }
 

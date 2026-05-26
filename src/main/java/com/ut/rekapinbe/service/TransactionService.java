@@ -47,8 +47,14 @@ public class TransactionService {
                 productRepository.save(product);
             }
 
-            BigDecimal subtotal = product.getSellingPrice().multiply(BigDecimal.valueOf(itemReq.quantity()));
-            BigDecimal profit = product.getSellingPrice().subtract(product.getCostPrice())
+            BigDecimal effectiveSellingPrice = product.getSellingPrice();
+            if (product.getDiscount() != null && product.getDiscount().compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal multiplier = BigDecimal.ONE.subtract(product.getDiscount().divide(BigDecimal.valueOf(100)));
+                effectiveSellingPrice = product.getSellingPrice().multiply(multiplier);
+            }
+
+            BigDecimal subtotal = effectiveSellingPrice.multiply(BigDecimal.valueOf(itemReq.quantity()));
+            BigDecimal profit = effectiveSellingPrice.subtract(product.getCostPrice())
                     .multiply(BigDecimal.valueOf(itemReq.quantity()));
 
             TransactionItem item = TransactionItem.builder()
@@ -57,7 +63,7 @@ public class TransactionService {
                     .productName(product.getName())
                     .quantity(itemReq.quantity())
                     .costPrice(product.getCostPrice())
-                    .sellingPrice(product.getSellingPrice())
+                    .sellingPrice(effectiveSellingPrice)
                     .subtotal(subtotal)
                     .build();
 

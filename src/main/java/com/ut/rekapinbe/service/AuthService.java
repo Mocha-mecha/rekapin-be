@@ -1,8 +1,6 @@
 package com.ut.rekapinbe.service;
 
-import com.ut.rekapinbe.dto.AuthResponse;
-import com.ut.rekapinbe.dto.LoginRequest;
-import com.ut.rekapinbe.dto.RegisterRequest;
+import com.ut.rekapinbe.dto.*;
 import com.ut.rekapinbe.entity.User;
 import com.ut.rekapinbe.repository.UserRepository;
 import com.ut.rekapinbe.security.JwtUtils;
@@ -35,6 +33,8 @@ public class AuthService {
                 .username(request.username())
                 .password(passwordEncoder.encode(request.password()))
                 .fullName(request.fullName())
+                .securityQuestion(request.securityQuestion())
+                .securityAnswer(request.securityAnswer() == null ? null : passwordEncoder.encode(request.securityAnswer().trim().toLowerCase()))
                 .build();
 
         userRepository.save(user);
@@ -64,5 +64,77 @@ public class AuthService {
         User user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
         userRepository.delete(user);
+    }
+
+    public UserProfileResponse getProfile(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        return toProfile(user);
+    }
+
+    @Transactional
+    public ProfileUpdateResponse updateProfile(String currentUsername, UpdateProfileRequest request) {
+        User user = userRepository.findByUsername(currentUsername)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        userRepository.findByUsername(request.username())
+                .filter(existing -> !existing.getId().equals(user.getId()))
+                .ifPresent(existing -> { throw new RuntimeException("Username already exists"); });
+
+        user.setFullName(request.fullName());
+        user.setUsername(request.username());
+        User saved = userRepository.save(user);
+        UserDetails userDetails = userDetailsService.loadUserByUsername(saved.getUsername());
+        String token = jwtUtils.generateToken(userDetails);
+        return new ProfileUpdateResponse(token, toProfile(saved));
+    }
+
+    @Transactional
+    public void changePassword(String username, ChangePasswordRequest request) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!passwordEncoder.matches(request.oldPassword(), user.getPassword())) {
+            throw new RuntimeException("Old password is incorrect");
+        }
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void saveSecurityQuestion(String username, SecurityQuestionRequest request) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        user.setSecurityQuestion(request.securityQuestion());
+        user.setSecurityAnswer(passwordEncoder.encode(request.securityAnswer().trim().toLowerCase()));
+        userRepository.save(user);
+    }
+
+    public SecurityQuestionResponse getSecurityQuestion(String username) {
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (user.getSecurityQuestion() == null || user.getSecurityQuestion().isBlank()) {
+            throw new RuntimeException("This account does not have a security question");
+        }
+        return new SecurityQuestionResponse(user.getSecurityQuestion());
+    }
+
+    public void verifySecurityAnswer(VerifySecurityAnswerRequest request) {
+        User user = userRepository.findByUsername(request.username())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (user.getSecurityAnswer() == null || !passwordEncoder.matches(request.answer().trim().toLowerCase(), user.getSecurityAnswer())) {
+            throw new RuntimeException("Security answer is incorrect");
+        }
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        User user = userRepository.findByUsername(request.username())
+                .orElseThrow(() -> new RuntimeException("User not found"));
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        userRepository.save(user);
+    }
+
+    private UserProfileResponse toProfile(User user) {
+        return new UserProfileResponse(user.getId(), user.getUsername(), user.getFullName(), user.getSecurityQuestion());
     }
 }

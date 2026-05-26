@@ -28,6 +28,10 @@ public class User {
     @Column(nullable = false)
     private String fullName;
 
+    private String securityQuestion;
+
+    private String securityAnswer;
+
     @CreationTimestamp
     private LocalDateTime createdAt;
 
