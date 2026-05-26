@@ -7,6 +7,7 @@ import com.ut.rekapinbe.security.JwtUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -46,9 +47,13 @@ public class AuthService {
     }
 
     public AuthResponse login(LoginRequest request) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.username(), request.password())
-        );
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.username(), request.password())
+            );
+        } catch (AuthenticationException ex) {
+            throw new RuntimeException("Username atau password salah silahkan coba lagi");
+        }
 
         User user = userRepository.findByUsername(request.username())
                 .orElseThrow(() -> new RuntimeException("User not found"));
@@ -121,8 +126,13 @@ public class AuthService {
     public void verifySecurityAnswer(VerifySecurityAnswerRequest request) {
         User user = userRepository.findByUsername(request.username())
                 .orElseThrow(() -> new RuntimeException("User not found"));
-        if (user.getSecurityAnswer() == null || !passwordEncoder.matches(request.answer().trim().toLowerCase(), user.getSecurityAnswer())) {
-            throw new RuntimeException("Security answer is incorrect");
+        boolean questionMatches = user.getSecurityQuestion() != null
+                && user.getSecurityQuestion().equals(request.securityQuestion());
+        boolean answerMatches = user.getSecurityAnswer() != null
+                && passwordEncoder.matches(request.answer().trim().toLowerCase(), user.getSecurityAnswer());
+
+        if (!questionMatches || !answerMatches) {
+            throw new RuntimeException("Pertanyaan keamanan atau jawaban tidak sesuai");
         }
     }
 
