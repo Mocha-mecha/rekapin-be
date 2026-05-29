@@ -22,6 +22,25 @@ public class JwtRequestFilter extends OncePerRequestFilter {
     private final UserDetailsService userDetailsService;
     private final JwtUtils jwtUtils;
 
+    private static final String[] PUBLIC_PATHS = {
+            "/api/auth/register",
+            "/api/auth/login",
+            "/api/auth/security",
+            "/api/auth/verify-answer",
+            "/api/auth/reset-password",
+            "/v3/api-docs",
+            "/swagger-ui"
+    };
+
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+        for (String publicPath : PUBLIC_PATHS) {
+            if (path.startsWith(publicPath)) return true;
+        }
+        return false;
+    }
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
             throws ServletException, IOException {
